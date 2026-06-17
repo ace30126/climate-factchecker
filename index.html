@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기후 팩트체커 — Climate Fact-Checker (MVP)</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0d1626; --panel2:#0a121f; --line:#1c2940; --line2:#243450;
+    --ink:#e6edf7; --sub:#8499b5; --dim:#5b7088;
+    --cyan:#22d3ee; --blue:#38bdf8; --violet:#a78bfa; --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+    --mono:'JetBrains Mono','D2Coding','Consolas',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{font-family:'Pretendard','Malgun Gothic','맑은 고딕',system-ui,sans-serif;margin:0;color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(56,189,248,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(167,139,250,.08), transparent 55%),
+      var(--bg);
+    background-attachment:fixed;}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+    background-image:radial-gradient(rgba(120,160,220,.06) 1px,transparent 1px);background-size:22px 22px;}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px;position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;justify-content:safe center}
+  .mono{font-family:var(--mono)}
+  header.top{background:linear-gradient(135deg,rgba(34,211,238,.10),rgba(167,139,250,.08));
+    border:1px solid var(--line2);border-radius:14px;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+    box-shadow:0 0 0 1px rgba(34,211,238,.04),0 8px 40px rgba(0,0,0,.4);backdrop-filter:blur(6px)}
+  header.top h1{font-size:19px;margin:0;letter-spacing:-.3px}
+  header.top h1 .br{color:var(--cyan);font-family:var(--mono);font-weight:700}
+  header.top .meta{font-size:12px;color:var(--sub);font-family:var(--mono)}
+  .gear{background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.35);color:var(--cyan);border-radius:9px;padding:8px 13px;cursor:pointer;font-size:12.5px;font-family:var(--mono);transition:.18s}
+  .gear:hover{background:rgba(34,211,238,.2);box-shadow:0 0 16px rgba(34,211,238,.3)}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 12px 40px rgba(0,0,0,.45);padding:22px;margin-top:18px}
+  .hide{display:none!important}
+  .btn{border:0;border-radius:9px;padding:12px 20px;font-size:15px;cursor:pointer;font-weight:600;transition:transform .12s,background .2s,box-shadow .2s}
+  .btn:hover{transform:translateY(-2px)} .btn:active{transform:translateY(0)}
+  .btn.primary{background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04121c;box-shadow:0 0 20px rgba(34,211,238,.35)}
+  .btn.primary:hover{box-shadow:0 0 28px rgba(34,211,238,.55)}
+  .btn.ghost{background:rgba(255,255,255,.03);border:1px solid var(--line2);color:var(--sub)} .btn.ghost:hover{color:var(--ink);border-color:var(--cyan)}
+  .btn.lg{padding:16px 32px;font-size:18px} .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+  .hero{text-align:center;padding:24px 10px}
+  .hero h2{animation:rise .6s ease;letter-spacing:-.5px;font-size:28px}
+  .hero .lead{font-size:16px;color:var(--sub);margin:12px 0 24px;line-height:1.75}
+  .emoji{font-size:52px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 0 18px rgba(34,211,238,.4))}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .pills{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
+  .pill{border:1px solid var(--line2);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;background:rgba(255,255,255,.02);color:var(--sub);transition:.18s;font-family:var(--mono)}
+  .pill:hover{border-color:var(--cyan);color:var(--ink)} .pill.on{background:rgba(34,211,238,.14);color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.25)}
+  #round{animation:rise .4s ease}
+  .roundbar{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--sub);margin-bottom:12px;gap:8px;flex-wrap:wrap;font-family:var(--mono)}
+  .roundbar #rlabel{color:var(--cyan)}
+  .streak{color:var(--amber);font-weight:700}
+  .modepill{font-size:11px;border-radius:6px;padding:3px 9px;font-weight:700;font-family:var(--mono);border:1px solid}
+  .modepill.local{background:rgba(132,153,181,.1);color:var(--sub);border-color:var(--line2)}
+  .modepill.live{background:rgba(74,222,128,.12);color:var(--green);border-color:rgba(74,222,128,.4);box-shadow:0 0 12px rgba(74,222,128,.25)}
+  .claim{background:linear-gradient(180deg,rgba(251,191,36,.07),rgba(251,191,36,.02));border:1px solid rgba(251,191,36,.3);border-left:3px solid var(--amber);border-radius:10px;padding:14px 16px;position:relative;animation:rise .45s ease}
+  .claim .src{position:absolute;top:12px;right:14px;background:rgba(251,191,36,.12);color:var(--amber);font-size:10.5px;border-radius:6px;padding:3px 9px;max-width:55%;text-align:right;font-family:var(--mono)}
+  .claim .axis{font-size:10.5px;font-weight:700;color:var(--amber);font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase}
+  .claim .txt{font-size:21px;font-weight:700;margin-top:8px;max-width:80%;color:#fef3c7;line-height:1.4}
+  .grid{display:grid;grid-template-columns:248px 1fr;gap:16px;margin-top:16px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+  .console{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .console h3{margin:0 0 6px;font-size:15px;font-family:var(--mono);color:var(--cyan);letter-spacing:.3px}
+  .hintline{font-size:13px;color:var(--sub);margin-bottom:8px;font-family:var(--mono)}
+  .ctl{margin:12px 0}
+  .ctl label.t{font-size:11px;color:var(--dim);display:block;margin-bottom:6px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:14.5px;margin:7px 0;cursor:pointer;user-select:none;padding:6px 8px;border-radius:7px;transition:background .15s;color:var(--ink)}
+  .chk:hover{background:rgba(34,211,238,.06)} .chk input{width:15px;height:15px;accent-color:var(--cyan)}
+  .livebox{background:rgba(34,211,238,.04);border:1px dashed var(--line2);border-radius:9px;padding:11px;margin-top:6px}
+  .livebox .lab{font-size:12px;color:var(--sub);font-family:var(--mono)} .livebox .val{font-size:23px;font-weight:800;transition:color .2s;font-family:var(--mono)} .livebox .rng{font-size:12px;color:var(--dim);margin-top:3px;font-family:var(--mono)}
+  .chartwrap{background:#060b16;border:1px solid var(--line);border-radius:10px;padding:10px;position:relative;box-shadow:inset 0 0 40px rgba(34,211,238,.04)}
+  .chartwrap .src{font-size:11px;color:var(--sub);margin:2px 4px 8px;font-family:var(--mono)}
+  canvas#chart{width:100%;height:auto;display:block;cursor:crosshair;touch-action:none}
+  #tooltip{position:absolute;pointer-events:none;background:#020814;color:var(--cyan);border:1px solid rgba(34,211,238,.5);font-size:12px;padding:5px 9px;border-radius:6px;opacity:0;transform:translate(-50%,-130%);transition:opacity .12s;white-space:nowrap;z-index:5;font-family:var(--mono);box-shadow:0 0 16px rgba(34,211,238,.3)}
+  .legend{font-size:11px;color:var(--sub);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono)}
+  .legend i{display:inline-block;width:18px;height:0;border-top-width:2px;border-top-style:solid;vertical-align:middle;margin-right:4px}
+  .verdict{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .vbtn{flex:1;min-width:110px;border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--ink);border-radius:9px;padding:14px;cursor:pointer;font-size:16px;font-weight:600;transition:.15s}
+  .vbtn:hover{transform:translateY(-2px);border-color:var(--sub)}
+  .vbtn.true.on{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green);box-shadow:0 0 16px rgba(74,222,128,.25)}
+  .vbtn.false.on{background:rgba(248,113,113,.15);border-color:var(--red);color:var(--red);box-shadow:0 0 16px rgba(248,113,113,.25)}
+  .vbtn.half.on{background:rgba(251,191,36,.15);border-color:var(--amber);color:var(--amber);box-shadow:0 0 16px rgba(251,191,36,.25)} .vbtn.on{transform:scale(1.03)}
+  .feedback{margin-top:16px;border-radius:10px;padding:16px;border:1px solid;animation:rise .35s ease}
+  .feedback.ok{background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.4)} .feedback.no{background:rgba(248,113,113,.07);border-color:rgba(248,113,113,.4)}
+  .feedback h4{margin:0 0 8px;font-size:15px} .feedback p{margin:6px 0;font-size:13.5px;line-height:1.65;color:var(--ink)}
+  .feedback a{color:var(--cyan)} .cursorblink::after{content:'▋';animation:blink .8s steps(1) infinite;color:var(--green)} @keyframes blink{50%{opacity:0}}
+  .badges{margin-top:8px} .badge{display:inline-block;background:rgba(56,189,248,.1);color:var(--blue);border:1px solid rgba(56,189,248,.3);border-radius:6px;padding:3px 10px;font-size:11px;margin:3px 4px 0;animation:pop .3s ease;font-family:var(--mono)}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  .scorebig{font-size:46px;font-weight:800;color:var(--cyan);font-family:var(--mono);text-shadow:0 0 24px rgba(34,211,238,.4)}
+  .statrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+  .stat{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px} .stat .n{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--ink)} .stat .t{font-size:11.5px;color:var(--sub);font-family:var(--mono);margin-top:2px}
+  .note{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.6;font-family:var(--mono)}
+  #bgfx{position:fixed;inset:0;pointer-events:none;z-index:0}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+  /* RAG collect overlay */
+  #ragOverlay{position:fixed;inset:0;background:rgba(3,7,16,.85);z-index:40;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  .ragbox{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line2);border-radius:16px;padding:26px 30px;width:min(580px,92vw);box-shadow:0 0 60px rgba(34,211,238,.15)}
+  .ragbox h3{margin:0 0 4px;color:var(--cyan)} .ragbox .sub{color:var(--sub);font-size:12.5px;margin-bottom:14px;font-family:var(--mono)}
+  .feed{height:210px;overflow:hidden;border:1px solid var(--line);border-radius:10px;padding:10px;background:#060b16}
+  .feeditem{font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:7px;background:rgba(34,211,238,.04);border:1px solid var(--line);border-left:2px solid var(--cyan);animation:rise .3s ease}
+  .feeditem .q{font-weight:600;color:var(--ink)} .feeditem .s{font-size:10.5px;color:var(--sub);margin-top:3px;font-family:var(--mono)}
+  .ragbar{height:7px;background:var(--line);border-radius:5px;margin:14px 0 4px;overflow:hidden} .ragbar>div{height:100%;background:linear-gradient(90deg,#a78bfa,#22d3ee);width:0;transition:width .25s;box-shadow:0 0 12px rgba(34,211,238,.5)}
+  /* modal */
+  #modal{position:fixed;inset:0;background:rgba(3,7,16,.7);z-index:60;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+  .modalbox{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line2);border-radius:16px;padding:24px;width:min(540px,92vw);box-shadow:0 0 60px rgba(0,0,0,.6)}
+  .modalbox h3{margin:0 0 6px;color:var(--cyan)} .modalbox label{font-size:11px;color:var(--dim);display:block;margin:12px 0 4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px}
+  .modalbox input,.modalbox select{width:100%;padding:10px;border:1px solid var(--line2);border-radius:8px;font-size:13px;background:#060b16;color:var(--ink);font-family:var(--mono)}
+  .modalbox input:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 12px rgba(34,211,238,.2)}
+  .modalbox .sub{color:var(--sub);font-size:12.5px}
+  .warn{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.35);color:var(--amber);font-size:12px;border-radius:9px;padding:10px;margin-top:12px;line-height:1.55}
+  /* layout + sidebar */
+  .layout{display:grid;grid-template-columns:1fr 372px;gap:20px;align-items:stretch;margin-top:18px}
+  .main{min-width:0;display:flex;flex-direction:column}
+  .main>.card{flex:1;margin-top:0}
+  .side{display:flex;flex-direction:column;gap:16px}
+  .side .faqcard{flex:1}
+  @media(max-width:980px){.layout{grid-template-columns:1fr}.side{position:static}}
+  .copilot{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);display:flex;flex-direction:column}
+  .cohead{font-family:var(--mono);font-size:13px;color:var(--cyan);display:flex;align-items:center;gap:8px;letter-spacing:.3px}
+  .comode{font-size:9.5px;background:rgba(167,139,250,.14);color:var(--violet);border:1px solid rgba(167,139,250,.4);border-radius:5px;padding:2px 7px}
+  .comsgs{margin-top:12px;height:184px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+  .comsgs::-webkit-scrollbar{width:6px}.comsgs::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+  .msg{font-size:12.5px;line-height:1.55;padding:8px 10px;border-radius:9px;max-width:92%;animation:rise .25s ease}
+  .msg.bot{background:rgba(34,211,238,.07);border:1px solid var(--line);color:var(--ink);align-self:flex-start;border-bottom-left-radius:3px}
+  .msg.user{background:rgba(56,189,248,.16);color:#dff3ff;align-self:flex-end;border-bottom-right-radius:3px;font-family:var(--mono)}
+  .cofaq{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-size:11px;border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--sub);border-radius:14px;padding:5px 10px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--cyan);color:var(--cyan)}
+  .coinput{display:flex;gap:6px;margin-top:12px}
+  .coinput input{flex:1;background:#060b16;border:1px solid var(--line2);border-radius:8px;padding:9px;color:var(--ink);font-size:12.5px}
+  .coinput input:focus{outline:0;border-color:var(--cyan)}
+  .coinput button{background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.4);color:var(--cyan);border-radius:8px;width:40px;cursor:pointer;font-size:13px}
+  .coinput button:hover{background:rgba(34,211,238,.25)}
+  .cohint{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:8px;line-height:1.5}
+  .faqcard{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+  .faqhead{font-family:var(--mono);font-size:13px;color:var(--blue);margin-bottom:8px}
+  .faqitem{border-top:1px solid var(--line)}
+  .faqitem:first-of-type{border-top:0}
+  .faqq{font-size:12.5px;color:var(--ink);padding:10px 2px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+  .faqq:hover{color:var(--cyan)} .faqq .ar{color:var(--dim);transition:transform .2s}
+  .faqitem.open .faqq .ar{transform:rotate(90deg);color:var(--cyan)}
+  .faqa{font-size:12px;color:var(--sub);line-height:1.6;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;padding:0 2px}
+  .faqitem.open .faqa{max-height:200px;padding:0 2px 12px}
+  /* custom + explore modes */
+  .subentry{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .modehead{font-family:var(--mono);font-size:18px;color:var(--cyan);display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .modehead span{font-size:11px;background:rgba(167,139,250,.14);color:var(--violet);border:1px solid rgba(167,139,250,.4);border-radius:6px;padding:2px 9px}
+  textarea#customInput{width:100%;min-height:88px;background:#060b16;border:1px solid var(--line2);border-radius:10px;padding:13px;color:var(--ink);font-size:15px;font-family:inherit;resize:vertical;margin:14px 0}
+  textarea#customInput:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.18)}
+  select#exMetric{background:#060b16;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:11px;font-size:14px;font-family:var(--mono);margin:8px 0 14px;min-width:280px}
+  .matchbadge{display:inline-block;background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.35);border-radius:6px;padding:5px 11px;font-size:12.5px;font-family:var(--mono);margin-bottom:12px}
+  .toggles{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .modecanvas{width:100%;height:auto;display:block;background:#060b16;border:1px solid var(--line);border-radius:10px;margin-top:6px}
+  /* intro boot */
+  #intro{position:fixed;inset:0;z-index:80;background:rgba(4,8,16,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .6s ease}
+  #intro.done{opacity:0;pointer-events:none}
+  .bootlogo{font-size:30px;font-family:var(--mono);font-weight:700;margin-bottom:20px;animation:logoPulse 1.4s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(34,211,238,.45))}
+  .bootlogo .br{color:var(--cyan)}
+  @keyframes logoPulse{0%,100%{opacity:.7;transform:scale(.99)}50%{opacity:1;transform:scale(1.02)}}
+  #bootlines{font-family:var(--mono);color:var(--sub);font-size:13px;width:min(440px,86vw);line-height:2}
+  #bootlines .ok{color:var(--green)} #bootlines div{animation:rise .25s ease}
+</style>
+</head>
+<body>
+<canvas id="bgfx"></canvas>
+<canvas id="confetti"></canvas>
+
+<div id="intro">
+  <div class="bootlogo">🔍 <span class="br">climate-factchecker</span></div>
+  <div id="bootlines"></div>
+</div>
+<div class="wrap">
+  <header class="top">
+    <div><h1>🔍 기후 팩트체커 <span class="br">// climate-factchecker</span></h1><div class="meta">RAG · KMA-ASOS · LLM-judge — 데이터로 검증하는 트레이너 [MVP]</div></div>
+    <button class="gear" onclick="openModal()">⚙ AI 실시간 모드</button>
+  </header>
+
+  <div class="layout">
+  <main class="main">
+
+  <!-- ONBOARDING -->
+  <section id="onboard" class="card">
+    <div class="hero">
+      <div class="emoji">🌦️🔎</div>
+      <h2>인터넷 속 기상·기후 주장, 진짜일까?</h2>
+      <p class="lead">실제 커뮤니티·뉴스·Q&A에서 <b>사람들의 질문·오해를 수집(RAG)</b>해 검증 가능한 주장으로 바꿉니다.<br>차트를 직접 드래그하며 참·거짓을 가리고, 약점 유형은 <b>적응형으로 계속 출제</b>됩니다.</p>
+      <div class="pills" id="diffPills">
+        <div class="pill on" data-d="입문">입문</div><div class="pill" data-d="중급">중급</div><div class="pill" data-d="고수">고수</div>
+      </div>
+      <button class="btn primary lg" onclick="startGame()">질문 수집하고 시작하기 ▶</button>
+      <div class="subentry">
+        <button class="btn ghost" onclick="openCustom()">🔍 내 주장 검증</button>
+        <button class="btn ghost" onclick="openExplore()">📊 데이터 탐험</button>
+      </div>
+      <p class="note">※ 질문 코퍼스는 실제 온라인 논의에서 수집한 시드입니다(노컷뉴스·나무위키·아하 Q&A 등). 데이터는 시연용 예시(서울 기준, 정성적 경향은 실제와 일치)이며, 실서비스는 ASOS·단기예보 API + 실시간 웹 RAG로 동작합니다.</p>
+    </div>
+  </section>
+
+  <!-- ROUND -->
+  <section id="round" class="card hide">
+    <div class="roundbar">
+      <span id="rlabel"></span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <span class="modepill local" id="modePill">로컬 생성</span>
+        <span class="streak" id="streak"></span>
+        <span id="rscore"></span>
+        <button class="btn ghost" style="padding:6px 12px;font-size:12px" onclick="showReport()">결과 보기</button>
+      </span>
+    </div>
+
+    <div class="claim">
+      <span class="axis" id="caxis"></span>
+      <span class="src" id="csrcbadge"></span>
+      <div class="txt" id="ctext"></div>
+    </div>
+
+    <div class="grid">
+      <div class="console">
+        <h3>📊 데이터 콘솔</h3>
+        <div class="hintline" id="metricLabel"></div>
+        <div class="ctl">
+          <label class="t">보기 옵션</label>
+          <label class="chk"><input type="checkbox" id="optNormal" onchange="draw()">평년선</label>
+          <label class="chk"><input type="checkbox" id="optTrend" onchange="draw()">추세선(전체 기간)</label>
+          <label class="chk"><input type="checkbox" id="optMA" onchange="draw()">이동평균(10년)</label>
+          <label class="chk"><input type="checkbox" id="optExtreme" onchange="draw()">극값 표시</label>
+        </div>
+        <div class="livebox" id="liveBox">
+          <div class="lab" id="liveLab">🖱️ 차트를 드래그해 구간 선택</div>
+          <div class="val" id="liveVal" style="color:#94a3b8">—</div>
+          <div class="rng" id="liveRng">전체: <span id="liveFull"></span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="chartwrap">
+          <div class="src" id="csrc"></div>
+          <canvas id="chart" width="720" height="340"></canvas>
+          <div id="tooltip"></div>
+          <div class="legend">
+            <span><i style="border-color:#818cf8"></i>관측값</span>
+            <span><i style="border-color:#0ea5e9;border-top-style:dashed"></i>평년값</span>
+            <span><i style="border-color:#22c55e"></i>추세선</span>
+            <span><i style="border-color:#f59e0b"></i>이동평균</span>
+          </div>
+        </div>
+        <div class="verdict">
+          <button class="vbtn true" data-v="true" onclick="pick('true')">⭕ 참</button>
+          <button class="vbtn false" data-v="false" onclick="pick('false')">❌ 거짓</button>
+          <button class="vbtn half" data-v="half" onclick="pick('half')">🟡 반쪽진실</button>
+        </div>
+        <div style="text-align:right;margin-top:12px"><button class="btn primary" id="submitBtn" onclick="submitVerdict()" disabled>판정 제출 ▶</button></div>
+        <div id="fb" class="feedback hide"></div>
+        <div style="text-align:right;margin-top:12px"><button class="btn primary hide" id="nextBtn" onclick="nextRound()">다음 질문 ▶</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="report" class="card hide">
+    <h2>🏅 팩트체커 리포트</h2>
+    <div class="scorebig" id="finalScore"></div>
+    <div id="gradeLabel" style="color:var(--sub)"></div>
+    <div class="statrow">
+      <div class="stat"><div class="n" id="accN"></div><div class="t">판별 정확도</div></div>
+      <div class="stat"><div class="n" id="cherryN"></div><div class="t">체리피킹 회피/피해</div></div>
+      <div class="stat"><div class="n" id="conceptN"></div><div class="t">습득 개념</div></div>
+    </div>
+    <div class="badges" id="badgeBox" style="margin-top:14px"></div>
+    <p class="note" id="growthNote"></p>
+    <div style="margin-top:16px"><button class="btn primary" onclick="resumeGame()">계속 도전 ▶</button> <button class="btn ghost" onclick="openCustom()">🔍 내 주장 검증</button> <button class="btn ghost" onclick="openExplore()">📊 데이터 탐험</button> <button class="btn ghost" onclick="location.reload()">처음부터</button></div>
+  </section>
+
+  <!-- CUSTOM: 역방향 셀프 팩트체크 -->
+  <section id="custom" class="card hide">
+    <div class="modehead">🔍 내 주장 검증 <span>역방향 팩트체크</span></div>
+    <p style="color:var(--sub);font-size:14px;line-height:1.6">뉴스·SNS·커뮤니티에서 본 기상·기후 주장을 붙여넣으면, 관련 기상청 데이터를 찾아 <b style="color:var(--ink)">데이터 기반(grounded)</b>으로 검증합니다.</p>
+    <textarea id="customInput" placeholder="예: 요즘 여름이 옛날보다 훨씬 더워진 것 같아 / 장마 때 비가 예전보다 줄었대 / 강수확률 30%인데 비 왔으니 오보 아냐?"></textarea>
+    <div><button class="btn primary" onclick="runCustom()">데이터로 검증 ▶</button> <button class="btn ghost" onclick="backHome()">← 돌아가기</button></div>
+    <div id="customResult" class="hide" style="margin-top:16px"></div>
+  </section>
+
+  <!-- EXPLORE: 자유 데이터 탐험 -->
+  <section id="explore" class="card hide">
+    <div class="modehead">📊 데이터 탐험 <span>자유 탐색</span></div>
+    <p style="color:var(--sub);font-size:14px">지표를 골라 직접 추세·평년·극값을 살펴보세요.</p>
+    <select id="exMetric" onchange="exDraw()"></select>
+    <canvas id="exChart" class="modecanvas" width="720" height="330"></canvas>
+    <div class="toggles">
+      <label class="chk"><input type="checkbox" id="exN" checked onchange="exDraw()">평년선</label>
+      <label class="chk"><input type="checkbox" id="exT" checked onchange="exDraw()">추세선</label>
+      <label class="chk"><input type="checkbox" id="exM" onchange="exDraw()">이동평균(10년)</label>
+      <label class="chk"><input type="checkbox" id="exX" onchange="exDraw()">극값 표시</label>
+    </div>
+    <div id="exInfo" class="livebox" style="font-family:var(--mono)"></div>
+    <div style="margin-top:14px"><button class="btn ghost" onclick="backHome()">← 돌아가기</button></div>
+  </section>
+
+  </main>
+
+  <aside class="side">
+    <div class="copilot">
+      <div class="cohead">◆ COPILOT <span class="comode">RULE-BASED</span></div>
+      <div class="comsgs" id="coMsgs"></div>
+      <div class="cofaq" id="coFaq"></div>
+      <div class="coinput">
+        <input id="coInput" placeholder="기상 용어를 물어보세요…" onkeydown="if(event.key==='Enter')coSend()">
+        <button onclick="coSend()" aria-label="send">▶</button>
+      </div>
+      <div class="cohint">키워드 룰베이스로 응답합니다 · ⚙ 실시간 모드 시 LLM 연동</div>
+    </div>
+
+    <div class="faqcard">
+      <div class="faqhead">📚 기상 FAQ</div>
+      <div id="faqList"></div>
+    </div>
+  </aside>
+  </div>
+
+  <p class="note" style="text-align:center">데이터 출처(실서비스): 기상자료개방포털 data.kma.go.kr — ASOS 일자료 · 단기예보 │ 질문 출처: 온라인 커뮤니티·뉴스·Q&A</p>
+</div>
+
+<!-- RAG OVERLAY -->
+<div id="ragOverlay" class="hide">
+  <div class="ragbox">
+    <h3>🌐 인터넷에서 사람들의 질문을 수집 중…</h3>
+    <div class="sub">RAG: 기상·기후 관련 실제 질문·오해를 검색하고 검증 가능한 주장으로 변환합니다.</div>
+    <div class="feed" id="feed"></div>
+    <div class="ragbar"><div id="ragbar"></div></div>
+    <div class="sub" id="ragStatus">검색어 생성 중…</div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="modal" class="hide">
+  <div class="modalbox">
+    <h3>⚙ AI 실시간 생성 모드 (선택)</h3>
+    <div class="sub" style="color:var(--sub);font-size:13px">키를 입력하면 주장 문구·코칭 설명을 <b>실제 LLM</b>이 생성합니다. <b>정답 판정은 항상 데이터 기반(고정)</b>이라 환각이 결과를 왜곡하지 않습니다.</div>
+    <label>API 엔드포인트 (OpenAI 호환 chat/completions)</label>
+    <input id="apiUrl" placeholder="https://api.openai.com/v1/chat/completions">
+    <label>모델</label>
+    <input id="apiModel" placeholder="gpt-4o-mini 또는 호환 모델">
+    <label>API 키</label>
+    <input id="apiKey" type="password" placeholder="sk-...">
+    <div class="warn">🔒 보안: 데모용으로 키는 브라우저 localStorage에만 저장됩니다. <b>실서비스에서는 키를 클라이언트에 두지 말고 Serverless 프록시</b>를 통해 호출해야 합니다(정보보안 권고). 키 미입력 시 로컬 생성엔진으로 동작합니다.</div>
+    <div style="text-align:right;margin-top:14px">
+      <button class="btn ghost" onclick="clearKey()">연동 해제</button>
+      <button class="btn primary" onclick="saveKey()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====================== 데이터셋 (시연용 예시) ====================== */
+function pseudo(s){const x=Math.sin(s*12.9898)*43758.5453;return x-Math.floor(x);}
+function series(s,e,base,slope,amp,seed,clampMin){const a=[];for(let y=s;y<=e;y++){let v=base+slope*(y-s)+(pseudo(y*seed)-0.5)*2*amp;if(clampMin!==undefined)v=Math.max(clampMin,v);a.push({year:y,value:Math.round(v*10)/10});}return a;}
+const DATASETS={
+  precip:{metric:"연강수량 (mm)",unit:"mm",data:series(1973,2024,1350,1.0,420,7.7,200),normal:1400},
+  summerTemp:{metric:"여름철 평균기온 (℃)",unit:"℃",data:series(1973,2024,23.6,0.035,0.7,3.3),normal:24.4},
+  heatDays:{metric:"여름 폭염일수 (일)",unit:"일",data:(function(){const a=series(1973,2024,8,0.12,5,9.1,0);a[2018-1973].value=35;return a;})(),normal:11},
+  tropicalNights:{metric:"열대야일수 (일)",unit:"일",data:series(1973,2024,3,0.18,4,4.2,0),normal:8},
+  winterMin:{metric:"겨울 최저기온 (℃)",unit:"℃",data:series(1973,2024,-12.5,0.03,3.2,5.5),normal:-11.8},
+  reliability:{metric:"강수확률 신뢰도 (%)",unit:"%",reliability:true,normal:null,
+    data:[{year:10,value:11},{year:20,value:18},{year:30,value:31},{year:40,value:38},{year:50,value:52},{year:60,value:59},{year:70,value:72},{year:80,value:78},{year:90,value:91}]}
+};
+
+/* ====================== 질문 코퍼스 (실제 온라인 수집 시드) ====================== */
+const CORPUS=[
+  {q:"요즘 서울은 예전보다 비가 확실히 줄었다.",src:"커뮤니티 통념",type:"cherry",dataset:"precip",truth:"false",truthLabel:"거짓",
+   concepts:["체리피킹","장기추세 vs 단기변동"],
+   why:"강수량은 해마다 변동이 매우 크지만 50년 장기 추세는 뚜렷이 줄지 않았습니다. 최근 몇 년 가뭄해만 보면 줄어 보이는 '체리피킹' 함정입니다."},
+  {q:"기상청 강수 예보 적중률이 37%, 다섯 번 중 세 번은 틀린다.",src:"노컷뉴스",type:"stat",dataset:"reliability",truth:"half",truthLabel:"반쪽진실",
+   concepts:["통계 해석","확률예보 해석"],
+   why:"'적중률 37%'는 강수 유무를 단순 정오로 셌을 때 수치로, 비가 적은 날을 포함하면 정확도는 훨씬 높습니다. 확률예보의 신뢰도는 신뢰도 곡선으로 봐야 하며 곡선은 이상선에 거의 붙어 있습니다."},
+  {q:"강수확률 30%였는데 비 왔으니 기상청 예보는 틀렸다.",src:"아하 Q&A",type:"prob",dataset:"reliability",truth:"false",truthLabel:"거짓",
+   concepts:["확률예보 해석","예보 불확실성"],
+   why:"강수확률 30%는 '그런 날 10번 중 약 3번 비'라는 뜻입니다. 한 번 비가 왔다고 틀린 게 아니며, 신뢰도 곡선이 대각선에 거의 붙어 정확합니다."},
+  {q:"서울의 여름이 옛날보다 확실히 더워졌다.",src:"기후 기사",type:"trend",dataset:"summerTemp",truth:"true",truthLabel:"참",
+   concepts:["장기추세","평년편차"],
+   why:"변동은 있지만 추세선이 뚜렷한 우상향입니다. 평년값 위로 올라온 해가 최근에 집중되어 장기 온난화 경향이 데이터로 확인됩니다."},
+  {q:"열대야가 예전보다 훨씬 많아졌다.",src:"2025 여름 기사",type:"trend",dataset:"tropicalNights",truth:"true",truthLabel:"참",
+   concepts:["장기추세","평년편차"],
+   why:"열대야일수는 추세선이 가파른 우상향이고 최근 평년의 여러 배에 달합니다. 도시화·온난화가 겹친 결과로 '늘었다'가 맞습니다."},
+  {q:"2018년 여름은 역대급 폭염이었다.",src:"기상 기록",type:"extreme",dataset:"heatDays",truth:"true",truthLabel:"참",
+   concepts:["극값 식별","평년편차"],
+   why:"2018년은 다른 해를 압도하는 명백한 극값입니다. '극값 표시'를 켜면 평년의 3배가 넘는 폭염일수가 한눈에 보입니다."},
+  {q:"올겨울 한파가 왔으니 지구온난화는 거짓말이다.",src:"나무위키 '온난화 허구설'",type:"trend",dataset:"winterMin",truth:"false",truthLabel:"거짓",
+   concepts:["장기추세 vs 단기변동","체리피킹"],
+   why:"어느 한 해 한파가 왔다고 추세가 부정되지 않습니다. 변동은 크지만 추세선은 완만한 상승입니다. 단기 한 점을 전체 경향으로 일반화하는 오류예요."},
+  {q:"장마 때 내리는 비가 옛날보다 확 줄었다.",src:"2025 장마 기사",type:"cherry",dataset:"precip",truth:"half",truthLabel:"반쪽진실",
+   concepts:["체리피킹","장기추세 vs 단기변동"],
+   why:"최근 장마가 짧았던 해가 있지만, 연강수량 전체 추세는 뚜렷이 줄지 않았습니다. 특정 해·특정 기간만 보면 과장될 수 있습니다."},
+  {q:"기상관측소가 도시에 있어 기온 상승은 열섬 착시일 뿐이다.",src:"기후 회의론",type:"trend",dataset:"summerTemp",truth:"false",truthLabel:"거짓",
+   concepts:["장기추세","평년편차"],
+   why:"열섬 효과는 보정 대상이며, 도시 밖 관측소·위성 자료에서도 동일한 상승 추세가 확인됩니다. 추세 자체가 착시라는 주장은 데이터로 반박됩니다."},
+  {q:"겨울이 점점 더 추워지고 있다.",src:"체감 통념",type:"trend",dataset:"winterMin",truth:"false",truthLabel:"거짓",
+   concepts:["장기추세 vs 단기변동"],
+   why:"겨울 최저기온은 변동이 크지만 장기적으로 추워지는 추세가 아닙니다(완만한 상승). 추운 해의 기억이 더 강하게 남는 인지편향입니다."}
+];
+
+/* ====================== 상태 ====================== */
+let order=[],idx=0,score=0,displayScore=0,answers=[],difficulty="입문",streak=0;
+let cur=null,curData=null,picked=null;
+let brush=null,dragging=false,dragStart=null,hoverPt=null;
+let anim=1,cs=null,rafId=null,roundNo=0;
+let weakness={}; // type -> 틀린 횟수 (적응형)
+let llm={url:'',model:'',key:''};
+
+document.querySelectorAll('#diffPills .pill').forEach(p=>{p.onclick=()=>{document.querySelectorAll('#diffPills .pill').forEach(x=>x.classList.remove('on'));p.classList.add('on');difficulty=p.dataset.d;};});
+
+/* ---------- LLM 설정 ---------- */
+function loadKey(){try{llm=JSON.parse(localStorage.getItem('cfc_llm')||'{}');}catch(e){llm={};}updateModePill();}
+function openModal(){document.getElementById('apiUrl').value=llm.url||'';document.getElementById('apiModel').value=llm.model||'';document.getElementById('apiKey').value=llm.key||'';document.getElementById('modal').classList.remove('hide');}
+function saveKey(){llm={url:document.getElementById('apiUrl').value.trim(),model:document.getElementById('apiModel').value.trim(),key:document.getElementById('apiKey').value.trim()};localStorage.setItem('cfc_llm',JSON.stringify(llm));document.getElementById('modal').classList.add('hide');updateModePill();}
+function clearKey(){llm={};localStorage.removeItem('cfc_llm');document.getElementById('modal').classList.add('hide');updateModePill();}
+function liveMode(){return !!(llm.url&&llm.key&&llm.model);}
+function updateModePill(){const p=document.getElementById('modePill');if(!p)return;if(liveMode()){p.className='modepill live';p.textContent='AI 실시간 생성';}else{p.className='modepill local';p.textContent='로컬 생성';}}
+async function callLLM(system,user){
+  if(!liveMode()) return null;
+  try{
+    const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),12000);
+    const r=await fetch(llm.url,{method:'POST',signal:ctrl.signal,
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+llm.key},
+      body:JSON.stringify({model:llm.model,temperature:0.7,messages:[{role:'system',content:system},{role:'user',content:user}]})});
+    clearTimeout(to);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    return (j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').trim();
+  }catch(e){console.warn('LLM 호출 실패, 로컬 폴백:',e.message);return null;}
+}
+
+/* ---------- RAG 수집 오버레이 ---------- */
+const SEARCH_TERMS=["기상청 예보 왜 틀리나","강수확률 오해","지구온난화 거짓말 한파","장마 폭염 열대야 변화","기후변화 회의론 반박","도시 열섬 기온"];
+function runRAGCollect(done){
+  const ov=document.getElementById('ragOverlay'),feed=document.getElementById('feed'),bar=document.getElementById('ragbar'),st=document.getElementById('ragStatus');
+  ov.classList.remove('hide');feed.innerHTML='';
+  let i=0;const items=CORPUS.slice();
+  // shuffle
+  for(let k=items.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[items[k],items[j]]=[items[j],items[k]];}
+  st.textContent='검색어: '+SEARCH_TERMS[0];
+  const total=Math.min(7,items.length);
+  const iv=setInterval(()=>{
+    if(i<total){
+      const it=items[i];
+      const el=document.createElement('div');el.className='feeditem';
+      el.innerHTML=`<div class="q">“${it.q}”</div><div class="s">🔎 ${SEARCH_TERMS[i%SEARCH_TERMS.length]} · 출처: ${it.src}</div>`;
+      feed.prepend(el);
+      while(feed.children.length>4) feed.removeChild(feed.lastChild);
+      bar.style.width=Math.round((i+1)/total*100)+'%';
+      st.textContent='검색어: '+SEARCH_TERMS[(i+1)%SEARCH_TERMS.length]+' · 검증 가능한 주장으로 변환 중…';
+      i++;
+    }else{
+      clearInterval(iv);st.textContent='수집 완료! '+CORPUS.length+'개 시드 + 적응형 생성 준비됨';
+      setTimeout(()=>{ov.classList.add('hide');done();},650);
+    }
+  },420);
+}
+
+/* ---------- 게임 ---------- */
+function startGame(){
+  score=0;displayScore=0;answers=[];streak=0;roundNo=0;weakness={};
+  document.getElementById('onboard').classList.add('hide');
+  document.getElementById('report').classList.add('hide');
+  runRAGCollect(()=>{
+    buildQueue();
+    document.getElementById('round').classList.remove('hide');
+    loadRound();
+  });
+}
+function resumeGame(){document.getElementById('report').classList.add('hide');document.getElementById('round').classList.remove('hide');if(order.length<=idx) buildQueue();loadRound();}
+
+function buildQueue(){
+  // 적응형: 약점 유형 가중치로 셔플 큐 생성 (무한 보충)
+  const pool=CORPUS.map((c,i)=>i);
+  pool.sort((a,b)=>((weakness[CORPUS[b].type]||0)-(weakness[CORPUS[a].type]||0))+ (Math.random()-0.5));
+  order=pool;idx=0;
+}
+
+async function loadRound(){
+  if(idx>=order.length) buildQueue();
+  cur=CORPUS[order[idx]];curData=DATASETS[cur.dataset];
+  picked=null;brush=null;hoverPt=null;roundNo++;
+  // 실시간 모드면 LLM이 주장 문구를 자연스럽게 재생성 (정답·데이터는 고정)
+  let claimText=cur.q;
+  document.getElementById('ctext').textContent='"'+claimText+'"';
+  if(liveMode()){
+    document.getElementById('ctext').textContent='"'+claimText+'" …';
+    const gen=await callLLM(
+      "너는 기상·기후 교육용 팩트체크 게임의 출제자다. 사람들이 실제로 할 법한 한국어 '주장' 한 문장만 생성하라. 통계나 수치를 지어내지 말고, 주어진 시드의 취지를 유지하되 표현만 자연스럽게 바꿔라. 따옴표 없이 한 문장.",
+      "시드 주장: "+cur.q);
+    if(gen) claimText=gen.replace(/^["“']|["”']$/g,'');
+    document.getElementById('ctext').textContent='"'+claimText+'"';
+  }
+  cur._claimText=claimText;
+  document.getElementById('rlabel').textContent=`질문 #${roundNo}`;
+  setScoreText();
+  document.getElementById('streak').textContent=streak>=2?`🔥 ${streak}연속`:'';
+  document.getElementById('caxis').textContent=curData.reliability?"예보 불확실성":"기후 데이터 검증";
+  document.getElementById('csrcbadge').textContent='🌐 수집 · '+cur.src;
+  document.getElementById('csrc').textContent='서울 · '+curData.metric+' · 데이터: 기상청 ASOS(예시)';
+  document.getElementById('metricLabel').textContent='지표: '+curData.metric;
+  ['optNormal','optTrend','optMA','optExtreme'].forEach(id=>document.getElementById(id).checked=false);
+  document.getElementById('optNormal').parentElement.style.display=curData.normal===null?'none':'flex';
+  document.getElementById('optExtreme').parentElement.style.display=curData.reliability?'none':'flex';
+  document.getElementById('optMA').parentElement.style.display=curData.reliability?'none':'flex';
+  if(curData.reliability){document.getElementById('liveLab').textContent='🖱️ 점에 마우스를 올려 값 확인';document.getElementById('liveRng').style.display='none';}
+  else{document.getElementById('liveLab').textContent='🖱️ 차트를 드래그해 구간 선택';document.getElementById('liveRng').style.display='block';document.getElementById('liveFull').textContent=fmtTrend(linregSlope(curData.data));}
+  document.getElementById('liveVal').textContent='—';document.getElementById('liveVal').style.color='#94a3b8';
+  document.querySelectorAll('.vbtn').forEach(b=>{b.classList.remove('on');b.disabled=false;});
+  document.getElementById('submitBtn').disabled=true;
+  document.getElementById('fb').classList.add('hide');
+  document.getElementById('nextBtn').classList.add('hide');
+  anim=0;startAnim();
+}
+
+function setScoreText(){document.getElementById('rscore').textContent=`판별력 ${Math.round(displayScore)}점`;}
+function fmtTrend(slope){const u=curData.unit;const dir=slope>0.02?'↗':slope<-0.02?'↘':'→';const v=(slope>=0?'+':'')+(Math.abs(slope)>=1?slope.toFixed(1):slope.toFixed(3));return `${v} ${u}/년 ${dir}`;}
+function trendColor(slope){return slope>0.02?'#22c55e':slope<-0.02?'#dc2626':'#475569';}
+function pick(v){picked=v;document.querySelectorAll('.vbtn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));document.getElementById('submitBtn').disabled=false;}
+function linregSlope(pts){const n=pts.length;let sx=0,sy=0,sxy=0,sxx=0;pts.forEach(p=>{sx+=p.year;sy+=p.value;sxy+=p.year*p.value;sxx+=p.year*p.year;});return (n*sxy-sx*sy)/(n*sxx-sx*sx);}
+
+async function submitVerdict(){
+  const correct=picked===cur.truth;
+  let pts=correct?12:0;
+  const viewedTrend=document.getElementById('optTrend').checked;
+  let cherry=false;
+  if(!curData.reliability&&brush){const span=Math.abs(brush.b-brush.a)+1;cherry=span<=curData.data.length*0.35;}
+  if(correct&&viewedTrend)pts+=3;
+  if(correct){streak++;if(streak>=3)pts+=2;}else{streak=0;weakness[cur.type]=(weakness[cur.type]||0)+1;}
+  score+=pts;
+  answers.push({correct,cherry,concepts:cur.concepts,type:cur.type});
+
+  const fb=document.getElementById('fb');fb.className='feedback '+(correct?'ok':'no');
+  let extras=[];
+  if(!correct&&!viewedTrend&&!curData.reliability)extras.push("👉 다음엔 <b>추세선</b>을 켜고 장기 경향을 먼저 확인해 보세요.");
+  if(cherry&&cur.truth!=="true")extras.push("👉 짧은 최근 구간만 칠하셨네요. 전체 기간을 보면 결론이 달라집니다(체리피킹).");
+  if(correct&&viewedTrend)extras.push("✅ 추세선으로 근거를 확인하고 판정했습니다(+3 보너스).");
+  if(correct&&streak>=3)extras.push("🔥 3연속 정답 보너스 +2!");
+
+  fb.innerHTML=`<h4>${correct?'정답입니다! 🎉':'아쉬워요'} &nbsp; <span style="font-size:13px;color:#475569">당신: ${vlabel(picked)} · 정답: ${cur.truthLabel} · +${pts}점</span></h4>`+
+    `<p>🤖 <b>AI 심판</b> — <span id="coach" class="cursorblink"></span></p>`+
+    (extras.length?`<p id="extras" style="opacity:0;transition:opacity .3s">${extras.join('<br>')}</p>`:'')+
+    `<div class="badges">${cur.concepts.map(c=>`<span class="badge">#${c}</span>`).join('')}</div>`+
+    `<p style="font-size:11.5px;color:#94a3b8;margin-top:8px">검증 근거: 기상청 ASOS(예시 데이터) · 주장 출처: ${cur.src}</p>`;
+  fb.classList.remove('hide');
+  document.getElementById('submitBtn').disabled=true;
+  document.querySelectorAll('.vbtn').forEach(b=>b.disabled=true);
+  if(correct)launchConfetti();
+  animateScore();
+  const nb=document.getElementById('nextBtn');nb.classList.remove('hide');nb.textContent='다음 질문 ▶';
+
+  // 코칭 문구: 실시간 모드면 사용자 행동 반영해 LLM 생성, 아니면 코퍼스 설명
+  let coachText=cur.why;
+  if(liveMode()){
+    const ev=brush?`사용자가 ${Math.min(brush.a,brush.b)}~${Math.max(brush.a,brush.b)} 구간을 봄`:'구간 선택 안 함';
+    const gen=await callLLM(
+      "너는 기상·기후 데이터 코치다. 사용자의 판정이 맞았는지와 정답은 이미 주어진다(데이터 기반, 바꾸지 마라). 통계를 새로 지어내지 말고, 주어진 핵심 설명을 사용자 행동에 맞춰 2~3문장 한국어로 친절히 풀어라.",
+      `주장: ${cur._claimText}\n정답: ${cur.truthLabel}\n사용자판정: ${vlabel(picked)} (${correct?'정답':'오답'})\n추세선 봤나: ${viewedTrend}\n${ev}\n핵심 설명: ${cur.why}`);
+    if(gen) coachText=gen;
+  }
+  typeWriter(document.getElementById('coach'),coachText,()=>{const c=document.getElementById('coach');if(c)c.classList.remove('cursorblink');const ex=document.getElementById('extras');if(ex)ex.style.opacity=1;});
+}
+function vlabel(v){return v==='true'?'참':v==='false'?'거짓':'반쪽진실';}
+function nextRound(){idx++;loadRound();}
+
+function showReport(){
+  if(!answers.length){alert('아직 판정한 질문이 없어요!');return;}
+  document.getElementById('round').classList.add('hide');
+  document.getElementById('report').classList.remove('hide');
+  const correctN=answers.filter(a=>a.correct).length;
+  const acc=Math.round(correctN/answers.length*100);
+  const cherryHit=answers.filter(a=>a.cherry&&!a.correct).length;
+  const cherryAvoid=answers.filter(a=>a.cherry&&a.correct).length;
+  const concepts=[...new Set(answers.flatMap(a=>a.concepts))];
+  document.getElementById('finalScore').textContent='0점';countUp(document.getElementById('finalScore'),score,'점');
+  const grade=acc>=80?'🥇 데이터 탐정':acc>=50?'🥈 견습 팩트체커':'🥉 입문 단계';
+  document.getElementById('gradeLabel').textContent=`질문 ${answers.length}개 · 정확도 ${acc}% · 등급: ${grade}`;
+  document.getElementById('accN').textContent=`${correctN}/${answers.length}`;
+  document.getElementById('cherryN').textContent=`회피 ${cherryAvoid} / 피해 ${cherryHit}`;
+  document.getElementById('conceptN').textContent=`${concepts.length}개`;
+  document.getElementById('badgeBox').innerHTML=concepts.map(c=>`<span class="badge">#${c}</span>`).join('');
+  const weak=Object.entries(weakness).sort((a,b)=>b[1]-a[1])[0];
+  const weakName={cherry:'체리피킹',trend:'추세 vs 단기변동',prob:'확률예보 해석',stat:'통계 해석',extreme:'극값 식별'};
+  document.getElementById('growthNote').innerHTML=
+    `이번 세션 판별 정확도 <b>${acc}%</b>. 실서비스에서는 사전 진단 대비 향상도를 함께 표시합니다.<br>`+
+    (weak?`가장 약한 유형: <b>${weakName[weak[0]]||weak[0]}</b> → 적응형 엔진이 이 유형을 더 출제합니다.`:'고른 정답률입니다 👍');
+  if(acc>=60)launchConfetti(true);
+}
+
+/* ---------- 애니메이션 ---------- */
+function startAnim(){if(rafId)cancelAnimationFrame(rafId);const t0=performance.now();(function step(t){anim=Math.min(1,(t-t0)/650);anim=1-Math.pow(1-anim,3);draw();if(anim<1)rafId=requestAnimationFrame(step);})(t0);}
+function animateScore(){const target=score,t0=performance.now(),from=displayScore;(function step(t){const k=Math.min(1,(t-t0)/500);displayScore=from+(target-from)*(1-Math.pow(1-k,2));setScoreText();if(k<1)requestAnimationFrame(step);})(performance.now());}
+function countUp(el,target,suf){const t0=performance.now();(function step(t){const k=Math.min(1,(t-t0)/900);el.textContent=Math.round(target*(1-Math.pow(1-k,3)))+suf;if(k<1)requestAnimationFrame(step);})(performance.now());}
+function typeWriter(el,text,done){if(!el)return;let i=0;el.textContent='';const iv=setInterval(()=>{el.textContent=text.slice(0,++i);if(i>=text.length){clearInterval(iv);done&&done();}},14);}
+
+/* ---------- 컨페티 ---------- */
+const confCv=document.getElementById('confetti'),confCtx=confCv.getContext('2d');let confParts=[],confRAF=null;
+function resizeConf(){confCv.width=innerWidth;confCv.height=innerHeight;}addEventListener('resize',resizeConf);resizeConf();
+function launchConfetti(big){const N=big?160:70;for(let i=0;i<N;i++){confParts.push({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*0.3,vx:(Math.random()-.5)*9,vy:Math.random()*-9-3,g:0.28+Math.random()*0.1,c:['#3b82f6','#22d3ee','#22c55e','#f59e0b','#ef4444','#a855f7'][i%6],s:5+Math.random()*5,rot:Math.random()*6,vr:(Math.random()-.5)*0.4,life:0});}if(!confRAF)confStep();}
+function confStep(){confCtx.clearRect(0,0,confCv.width,confCv.height);confParts.forEach(p=>{p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.life++;confCtx.save();confCtx.translate(p.x,p.y);confCtx.rotate(p.rot);confCtx.fillStyle=p.c;confCtx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6);confCtx.restore();});confParts=confParts.filter(p=>p.y<confCv.height+20&&p.life<200);if(confParts.length)confRAF=requestAnimationFrame(confStep);else{confCtx.clearRect(0,0,confCv.width,confCv.height);confRAF=null;}}
+
+/* ---------- 차트 ---------- */
+const cv=document.getElementById('chart'),ctx=cv.getContext('2d');
+function draw(){
+  if(!curData)return;
+  const W=cv.width,H=cv.height,padL=54,padR=18,padT=18,padB=34;
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#060b16';ctx.fillRect(0,0,W,H);
+  if(curData.reliability){drawReliability(W,H,padL,padR,padT,padB);return;}
+  const data=curData.data;const x0=data[0].year,x1=data[data.length-1].year;
+  const ymin=Math.min(...data.map(d=>d.value)),ymax=Math.max(...data.map(d=>d.value));
+  const ylo=ymin-(ymax-ymin)*0.12,yhi=ymax+(ymax-ymin)*0.12;
+  const X=y=>padL+(y-x0)/(x1-x0)*(W-padL-padR);const Y=v=>padT+(yhi-v)/(yhi-ylo)*(H-padT-padB);
+  cs={x0,x1,ylo,yhi,padL,padR,padT,padB,W,H,X,Y};
+  if(brush){ctx.fillStyle='rgba(34,211,238,0.12)';const bx0=X(Math.min(brush.a,brush.b)),bx1=X(Math.max(brush.a,brush.b));ctx.fillRect(bx0,padT,bx1-bx0,H-padT-padB);ctx.strokeStyle='rgba(34,211,238,0.5)';ctx.setLineDash([4,3]);ctx.strokeRect(bx0,padT,bx1-bx0,H-padT-padB);ctx.setLineDash([]);}
+  ctx.strokeStyle='#243450';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();
+  ctx.fillStyle='#94a3b8';ctx.font='12px monospace';
+  for(let g=0;g<=4;g++){const v=ylo+(yhi-ylo)*g/4,yy=Y(v);ctx.fillText(Math.round(v),6,yy+3);ctx.strokeStyle='#15233a';ctx.beginPath();ctx.moveTo(padL,yy);ctx.lineTo(W-padR,yy);ctx.stroke();}
+  ctx.fillStyle='#94a3b8';[x0,Math.round((x0+x1)/2),x1].forEach(yr=>ctx.fillText(yr,X(yr)-12,H-padB+18));
+  if(document.getElementById('optNormal').checked&&curData.normal!==null){ctx.strokeStyle='#0ea5e9';ctx.setLineDash([7,4]);ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(padL,Y(curData.normal));ctx.lineTo(W-padR,Y(curData.normal));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#0284c7';ctx.fillText('평년 '+curData.normal,W-padR-72,Y(curData.normal)-5);}
+  if(document.getElementById('optMA').checked){ctx.strokeStyle='#f59e0b';ctx.lineWidth=2;ctx.beginPath();let st=false;const last=x0+(x1-x0)*anim;data.forEach((d,i)=>{if(d.year>last)return;const lo=Math.max(0,i-9),win=data.slice(lo,i+1);const avg=win.reduce((s,p)=>s+p.value,0)/win.length;const px=X(d.year),py=Y(avg);st?ctx.lineTo(px,py):(ctx.moveTo(px,py),st=true);});ctx.stroke();}
+  if(document.getElementById('optTrend').checked){const slope=linregSlope(data);const mY=data.reduce((s,p)=>s+p.value,0)/data.length;const mX=data.reduce((s,p)=>s+p.year,0)/data.length;const f=x=>mY+slope*(x-mX);const xe=x0+(x1-x0)*anim;ctx.strokeStyle='#22c55e';ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(X(x0),Y(f(x0)));ctx.lineTo(X(xe),Y(f(xe)));ctx.stroke();if(anim>0.9){ctx.fillStyle='#22c55e';ctx.fillText('전체 추세 '+(slope>0.02?'상승 ↗':slope<-0.02?'하강 ↘':'거의 평평 →'),X(x0)+8,Y(f(x0))-6);}}
+  const shown=Math.floor(data.length*anim);
+  data.forEach((d,i)=>{if(i>shown)return;const px=X(d.year),py=Y(d.value);const isExt=document.getElementById('optExtreme').checked&&(d.value===ymax||d.value===ymin);const isH=hoverPt&&hoverPt.year===d.year;ctx.fillStyle=isExt?'#dc2626':(isH?'#38bdf8':'#818cf8');ctx.beginPath();ctx.arc(px,py,isExt?5.5:(isH?5:3.2),0,7);ctx.fill();if(isExt&&anim>0.95){ctx.fillStyle='#b91c1c';ctx.fillText(d.year+' (극값)',px-22,py-9);}});
+  if(brush){const a=Math.min(brush.a,brush.b),b=Math.max(brush.a,brush.b);const sub=data.filter(d=>d.year>=a&&d.year<=b);if(sub.length>=2){const slope=linregSlope(sub);const mY=sub.reduce((s,p)=>s+p.value,0)/sub.length;const mX=sub.reduce((s,p)=>s+p.year,0)/sub.length;const f=x=>mY+slope*(x-mX);ctx.strokeStyle='#a78bfa';ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(X(a),Y(f(a)));ctx.lineTo(X(b),Y(f(b)));ctx.stroke();}}
+}
+function drawReliability(W,H,padL,padR,padT,padB){
+  const data=curData.data;const X=p=>padL+p/100*(W-padL-padR);const Y=p=>padT+(100-p)/100*(H-padT-padB);cs={reliability:true,X,Y,padL,padR,padT,padB,W,H};
+  ctx.strokeStyle='#243450';ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();
+  ctx.fillStyle='#94a3b8';ctx.font='12px monospace';[0,25,50,75,100].forEach(t=>{ctx.fillText(t,X(t)-6,H-padB+18);ctx.fillText(t,6,Y(t)+3);});
+  ctx.fillText('발표 강수확률(%)',W/2-40,H-6);ctx.save();ctx.translate(14,H/2+40);ctx.rotate(-Math.PI/2);ctx.fillText('실제 강수빈도(%)',0,0);ctx.restore();
+  ctx.strokeStyle='#94a3b8';ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(X(0),Y(0));ctx.lineTo(X(100*anim),Y(100*anim));ctx.stroke();ctx.setLineDash([]);
+  if(anim>0.9){ctx.fillStyle='#64748b';ctx.fillText('이상선(완벽한 예보)',X(60)+6,Y(60)-8);}
+  ctx.strokeStyle='#38bdf8';ctx.lineWidth=2.6;ctx.beginPath();const shown=data.length*anim;data.forEach((d,i)=>{if(i>shown)return;const px=X(d.year),py=Y(d.value);i&&i<=shown?ctx.lineTo(px,py):ctx.moveTo(px,py);});ctx.stroke();
+  ctx.fillStyle='#38bdf8';data.forEach((d,i)=>{if(i>shown)return;const isH=hoverPt&&hoverPt.year===d.year;ctx.beginPath();ctx.arc(X(d.year),Y(d.value),isH?5:3.5,0,7);ctx.fill();});
+  if(anim>0.95){const p30=data.find(d=>d.year===30);ctx.strokeStyle='#dc2626';ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(X(30),H-padB);ctx.lineTo(X(30),Y(p30.value));ctx.lineTo(padL,Y(p30.value));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#b91c1c';ctx.fillText('확률30% 발표일의 실제 강수율 '+p30.value+'%',X(30)+6,Y(p30.value)-8);}
+}
+/* ---------- 마우스 ---------- */
+function canvasPos(e){const r=cv.getBoundingClientRect();return{px:(e.clientX-r.left)*(cv.width/r.width),py:(e.clientY-r.top)*(cv.height/r.height)};}
+function pxToYear(px){if(!cs||cs.reliability)return null;const{x0,x1,padL,padR,W}=cs;let y=x0+(px-padL)/(W-padL-padR)*(x1-x0);return Math.round(Math.max(x0,Math.min(x1,y)));}
+function nearestPoint(px,py){if(!curData||!cs)return null;let best=null,bd=1e9;curData.data.forEach(d=>{const X=cs.X(d.year),Y=cs.Y(d.value);const dist=Math.hypot(X-px,Y-py);if(dist<bd){bd=dist;best={...d,X,Y};}});return bd<26?best:null;}
+cv.addEventListener('mousedown',e=>{if(!curData||curData.reliability)return;dragging=true;dragStart=pxToYear(canvasPos(e).px);});
+cv.addEventListener('mousemove',e=>{if(!curData)return;const{px,py}=canvasPos(e);const np=nearestPoint(px,py);hoverPt=np;const tip=document.getElementById('tooltip');if(np){tip.style.opacity=1;const r=cv.getBoundingClientRect();tip.style.left=(np.X*(r.width/cv.width))+'px';tip.style.top=(np.Y*(r.height/cv.height))+'px';tip.textContent=curData.reliability?`발표 ${np.year}% → 실제 ${np.value}%`:`${np.year}년 · ${np.value}${curData.unit}`;}else tip.style.opacity=0;if(dragging&&!curData.reliability){brush={a:dragStart,b:pxToYear(px)};updateLive();}if(anim>=1)draw();});
+addEventListener('mouseup',()=>{if(dragging){dragging=false;if(brush&&Math.abs(brush.a-brush.b)<1){brush=null;updateLive();}}});
+cv.addEventListener('mouseleave',()=>{hoverPt=null;document.getElementById('tooltip').style.opacity=0;if(anim>=1)draw();});
+function updateLive(){const lv=document.getElementById('liveVal'),lab=document.getElementById('liveLab');if(!brush){lv.textContent='—';lv.style.color='#94a3b8';lab.textContent='🖱️ 차트를 드래그해 구간 선택';return;}const a=Math.min(brush.a,brush.b),b=Math.max(brush.a,brush.b);const sub=curData.data.filter(d=>d.year>=a&&d.year<=b);if(sub.length<2){lv.textContent='—';return;}const slope=linregSlope(sub);lab.innerHTML=`선택 구간 <b>${a}~${b}</b> (${b-a+1}년)`;lv.textContent=fmtTrend(slope);lv.style.color=trendColor(slope);}
+
+loadKey();
+
+/* ---------- 배경 파티클 (network / 흐르는 데이터) ---------- */
+(function(){
+  const bg=document.getElementById('bgfx'),bx=bg.getContext('2d');let P=[];
+  function initP(){P=[];const n=Math.min(90,Math.floor(innerWidth*innerHeight/18000));
+    for(let i=0;i<n;i++)P.push({x:Math.random()*bg.width,y:Math.random()*bg.height,vx:(Math.random()-.5)*.28,vy:.14+Math.random()*.4,r:Math.random()*2+1.3});}
+  function bgResize(){bg.width=innerWidth;bg.height=innerHeight;initP();}
+  function step(){
+    bx.clearRect(0,0,bg.width,bg.height);
+    for(const p of P){p.x+=p.vx;p.y+=p.vy;
+      if(p.y>bg.height+6){p.y=-6;p.x=Math.random()*bg.width;}
+      if(p.x<-6)p.x=bg.width+6; if(p.x>bg.width+6)p.x=-6;}
+    bx.lineWidth=1;
+    for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){
+      const a=P[i],b=P[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;
+      if(d<13000){const al=(1-d/13000)*.28;bx.strokeStyle='rgba(56,189,248,'+al+')';
+        bx.beginPath();bx.moveTo(a.x,a.y);bx.lineTo(b.x,b.y);bx.stroke();}}
+    bx.shadowBlur=9;bx.shadowColor='rgba(56,189,248,.9)';
+    for(const p of P){bx.fillStyle='rgba(160,215,250,.95)';bx.beginPath();bx.arc(p.x,p.y,p.r,0,7);bx.fill();}
+    bx.shadowBlur=0;
+    requestAnimationFrame(step);
+  }
+  addEventListener('resize',bgResize);bgResize();step();
+})();
+
+/* ---------- Copilot (rule-based) + 기상 FAQ ---------- */
+const KB=[
+ {q:"강수확률 30%가 무슨 뜻인가요?",keys:["강수확률","30%","확률"],a:"강수확률 30%는 '그런 기상 조건의 날 100번 중 약 30번 비가 온다'는 뜻이에요. 한 번 비가 왔다고 예보가 틀린 게 아닙니다."},
+ {q:"기상청은 왜 자주 틀리나요?",keys:["왜","틀리","오보","못맞","부정확","틀려"],a:"한반도는 지형이 복잡하고 여름철 대류성 강수가 많아 예측이 어렵습니다. 예보는 본질적으로 확률·불확실성을 동반하고, 리드타임이 길수록 정확도가 떨어집니다."},
+ {q:"평년값이 뭔가요?",keys:["평년","기준선"],a:"최근 30년(예: 1991~2020)의 평균값이에요. '평년 대비 높다/낮다'를 판단하는 기준선입니다."},
+ {q:"폭염·열대야 기준은?",keys:["폭염","열대야","기준","33","25"],a:"폭염일은 일 최고기온 33℃ 이상인 날, 열대야는 밤 최저기온 25℃ 이상인 날입니다."},
+ {q:"리드타임이란?",keys:["리드타임","리드","며칠","앞","당일","일주일"],a:"예보 발표 시점부터 예보 대상 시각까지의 간격입니다. 당일 예보는 정확도가 높고, 7일 뒤 예보는 불확실성이 큽니다."},
+ {q:"체리피킹이 뭐죠?",keys:["체리","체리피킹","골라","일부만"],a:"전체 데이터 중 자기 주장에 유리한 일부 구간만 골라 보여주는 오류예요. 짧은 최근 구간만 보면 추세를 왜곡할 수 있습니다."}
+];
+function coMsg(role,text){const m=document.createElement('div');m.className='msg '+role;m.textContent=text;const box=document.getElementById('coMsgs');box.appendChild(m);box.scrollTop=box.scrollHeight;return m;}
+function coType(text){const m=coMsg('bot','');let i=0;const box=document.getElementById('coMsgs');const iv=setInterval(()=>{m.textContent=text.slice(0,++i);box.scrollTop=box.scrollHeight;if(i>=text.length)clearInterval(iv);},12);}
+function coAnswer(text){const t=text.replace(/\s/g,'');const hit=KB.find(f=>f.keys.some(k=>t.includes(k)));coType(hit?hit.a:"그 질문은 아직 룰베이스에 없어요. ⚙ AI 실시간 모드를 켜면 LLM이 폭넓게 답할 수 있어요. 아래 FAQ를 눌러보세요.");}
+function coSend(){const inp=document.getElementById('coInput');const v=inp.value.trim();if(!v)return;coMsg('user',v);inp.value='';setTimeout(()=>coAnswer(v),280);}
+(function initCopilot(){
+  const faq=document.getElementById('coFaq');
+  KB.slice(0,4).forEach(f=>{const c=document.createElement('span');c.className='chip';c.textContent=f.q.replace(/\?$/,'');c.onclick=()=>{coMsg('user',f.q);setTimeout(()=>coType(f.a),260);};faq.appendChild(c);});
+  coMsg('bot','안녕하세요! 기상 용어가 헷갈리면 물어보세요. 아래 칩을 누르거나 직접 입력해도 됩니다. 🙂');
+  const list=document.getElementById('faqList');
+  KB.forEach(f=>{const it=document.createElement('div');it.className='faqitem';it.innerHTML=`<div class="faqq"><span>${f.q}</span><span class="ar">▸</span></div><div class="faqa">${f.a}</div>`;it.querySelector('.faqq').onclick=()=>it.classList.toggle('open');list.appendChild(it);});
+})();
+
+/* ---------- 모드 전환 (퀴즈 / 셀프체크 / 탐험) ---------- */
+function showSection(id){['onboard','round','report','custom','explore'].forEach(s=>{const el=document.getElementById(s);if(el)el.classList.toggle('hide',s!==id);});}
+function backHome(){showSection('onboard');}
+
+/* 정적 차트 (brush 없이, 토글 반영) — draw()의 경량 버전 */
+function fmtSlopeStatic(slope,unit){const dir=slope>0.02?'↗':slope<-0.02?'↘':'→';const v=(slope>=0?'+':'')+(Math.abs(slope)>=1?slope.toFixed(1):slope.toFixed(3));return `${v} ${unit}/년 ${dir}`;}
+function drawStatic(canvas,ds,opt){
+  const c=canvas.getContext('2d'),W=canvas.width,H=canvas.height,padL=54,padR=18,padT=18,padB=34;
+  c.clearRect(0,0,W,H);c.fillStyle='#060b16';c.fillRect(0,0,W,H);c.font='12px monospace';
+  if(ds.reliability){
+    const data=ds.data,X=p=>padL+p/100*(W-padL-padR),Y=p=>padT+(100-p)/100*(H-padT-padB);
+    c.strokeStyle='#243450';c.beginPath();c.moveTo(padL,padT);c.lineTo(padL,H-padB);c.lineTo(W-padR,H-padB);c.stroke();
+    c.fillStyle='#94a3b8';[0,25,50,75,100].forEach(t=>{c.fillText(t,X(t)-6,H-padB+18);c.fillText(t,6,Y(t)+3);});
+    c.strokeStyle='#94a3b8';c.setLineDash([6,4]);c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(100),Y(100));c.stroke();c.setLineDash([]);
+    c.strokeStyle='#38bdf8';c.lineWidth=2.6;c.beginPath();data.forEach((d,i)=>{const px=X(d.year),py=Y(d.value);i?c.lineTo(px,py):c.moveTo(px,py);});c.stroke();
+    c.fillStyle='#38bdf8';data.forEach(d=>{c.beginPath();c.arc(X(d.year),Y(d.value),3.5,0,7);c.fill();});return;
+  }
+  const data=ds.data,x0=data[0].year,x1=data[data.length-1].year;
+  const ymin=Math.min(...data.map(d=>d.value)),ymax=Math.max(...data.map(d=>d.value));
+  const ylo=ymin-(ymax-ymin)*0.12,yhi=ymax+(ymax-ymin)*0.12;
+  const X=y=>padL+(y-x0)/(x1-x0)*(W-padL-padR),Y=v=>padT+(yhi-v)/(yhi-ylo)*(H-padT-padB);
+  c.strokeStyle='#243450';c.lineWidth=1;c.beginPath();c.moveTo(padL,padT);c.lineTo(padL,H-padB);c.lineTo(W-padR,H-padB);c.stroke();
+  c.fillStyle='#94a3b8';for(let g=0;g<=4;g++){const v=ylo+(yhi-ylo)*g/4,yy=Y(v);c.fillText(Math.round(v),6,yy+3);c.strokeStyle='#15233a';c.beginPath();c.moveTo(padL,yy);c.lineTo(W-padR,yy);c.stroke();}
+  c.fillStyle='#94a3b8';[x0,Math.round((x0+x1)/2),x1].forEach(yr=>c.fillText(yr,X(yr)-12,H-padB+18));
+  if(opt.normal&&ds.normal!==null){c.strokeStyle='#0ea5e9';c.setLineDash([7,4]);c.lineWidth=1.6;c.beginPath();c.moveTo(padL,Y(ds.normal));c.lineTo(W-padR,Y(ds.normal));c.stroke();c.setLineDash([]);c.fillStyle='#0284c7';c.fillText('평년 '+ds.normal,W-padR-72,Y(ds.normal)-5);}
+  if(opt.ma){c.strokeStyle='#f59e0b';c.lineWidth=2;c.beginPath();let st=false;data.forEach((d,i)=>{const lo=Math.max(0,i-9),win=data.slice(lo,i+1),avg=win.reduce((s,p)=>s+p.value,0)/win.length;const px=X(d.year),py=Y(avg);st?c.lineTo(px,py):(c.moveTo(px,py),st=true);});c.stroke();}
+  if(opt.trend){const slope=linregSlope(data),mY=data.reduce((s,p)=>s+p.value,0)/data.length,mX=data.reduce((s,p)=>s+p.year,0)/data.length,f=x=>mY+slope*(x-mX);c.strokeStyle='#22c55e';c.lineWidth=2.6;c.beginPath();c.moveTo(X(x0),Y(f(x0)));c.lineTo(X(x1),Y(f(x1)));c.stroke();c.fillStyle='#22c55e';c.fillText('추세 '+(slope>0.02?'↗':slope<-0.02?'↘':'→'),X(x0)+8,Y(f(x0))-6);}
+  data.forEach(d=>{const px=X(d.year),py=Y(d.value),isExt=opt.extreme&&(d.value===ymax||d.value===ymin);c.fillStyle=isExt?'#f87171':'#818cf8';c.beginPath();c.arc(px,py,isExt?5.5:3.2,0,7);c.fill();if(isExt){c.fillStyle='#f87171';c.fillText(d.year,px-12,py-9);}});
+}
+
+/* ① 역방향 셀프 팩트체크 */
+function openCustom(){showSection('custom');document.getElementById('customResult').classList.add('hide');}
+function classifyClaim(text){
+  const dec=/(줄|감소|적어|안\s?와|안\s?오|덜|없어|짧아|준다|줄었)/.test(text);
+  const inc=/(늘|증가|많아|심해|더워|뜨거|올라|길어|잦|상승|더운)/.test(text);
+  const dir=inc?1:dec?-1:0;
+  let key=null;
+  if(/(강수확률|확률)/.test(text))key='reliability';
+  else if(/(폭염|불볕|33)/.test(text))key='heatDays';
+  else if(/(열대야|밤.?더|25도)/.test(text))key='tropicalNights';
+  else if(/(겨울|한파|추위|추워|혹한)/.test(text))key='winterMin';
+  else if(/(여름|기온|더워|온난화|더운|기후)/.test(text))key='summerTemp';
+  else if(/(비|강수|장마|가뭄|폭우)/.test(text))key='precip';
+  return {key,dir};
+}
+function runCustom(){
+  const txt=document.getElementById('customInput').value.trim();const res=document.getElementById('customResult');
+  if(!txt){res.innerHTML='<p style="color:var(--sub)">주장을 입력해 주세요.</p>';res.classList.remove('hide');return;}
+  const {key,dir}=classifyClaim(txt);
+  if(!key){res.innerHTML='<div class="feedback no"><p>관련 기상 지표를 찾지 못했어요. <b>비·기온·폭염·열대야·겨울·강수확률</b> 관련 표현을 넣어보세요.</p></div>';res.classList.remove('hide');return;}
+  const ds=DATASETS[key];let verdict,vc,expl;
+  if(ds.reliability){verdict='확률예보 오해 주의';vc='no';expl="강수확률은 '그런 날 100번 중 비 오는 비율'이라, 한 번 비가 왔다고 예보가 틀린 게 아닙니다. 신뢰도 곡선이 이상선에 가까울수록 정확합니다.";}
+  else{
+    const slope=linregSlope(ds.data),td=slope>0.02?1:slope<-0.02?-1:0;
+    if(dir===0){verdict='데이터로 직접 확인하세요';vc='ok';}
+    else if(td===0){verdict='반쪽진실 — 뚜렷한 장기 추세 없음';vc='no';}
+    else if(dir===td){verdict='데이터와 대체로 일치 ✓';vc='ok';}
+    else{verdict='데이터와 반대 — 사실로 보기 어려움';vc='no';}
+    expl=`${ds.metric}의 장기 추세는 <b>${fmtSlopeStatic(slope,ds.unit)}</b> 입니다. 주장 방향(${dir>0?'증가':'감소'})과 ${td===0?'추세 불명확':(dir===td?'일치':'불일치')}. 변동과 추세를 구분해 보세요.`;
+  }
+  res.innerHTML=`<div class="matchbadge">🔎 매칭 지표: ${ds.metric}</div>
+    <canvas id="customChart" class="modecanvas" width="720" height="320"></canvas>
+    <div class="toggles">
+      <label class="chk"><input type="checkbox" id="cN" checked onchange="customRedraw()">평년선</label>
+      <label class="chk"><input type="checkbox" id="cT" checked onchange="customRedraw()">추세선</label>
+      <label class="chk"><input type="checkbox" id="cM" onchange="customRedraw()">이동평균</label>
+      <label class="chk"><input type="checkbox" id="cX" onchange="customRedraw()">극값</label>
+    </div>
+    <div class="feedback ${vc}"><h4>🤖 데이터 판정: ${verdict}</h4><p>${expl}</p>
+    <p style="font-size:11.5px;color:var(--dim)">※ 데이터 기반 자동 판정(grounded·환각 0). ⚙ 실시간 모드 시 LLM이 더 정교하게 해설합니다.</p></div>`;
+  res.classList.remove('hide');
+  customRedraw._ds=ds;customRedraw();
+}
+function customRedraw(){const ds=customRedraw._ds;if(!ds)return;drawStatic(document.getElementById('customChart'),ds,{normal:cN.checked,trend:cT.checked,ma:cM.checked,extreme:cX.checked});}
+
+/* ④ 자유 데이터 탐험 */
+function openExplore(){
+  const sel=document.getElementById('exMetric');
+  if(!sel.options.length)Object.keys(DATASETS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=DATASETS[k].metric;sel.appendChild(o);});
+  showSection('explore');exDraw();
+}
+function exDraw(){
+  const ds=DATASETS[document.getElementById('exMetric').value];
+  drawStatic(document.getElementById('exChart'),ds,{normal:exN.checked,trend:exT.checked,ma:exM.checked,extreme:exX.checked});
+  const info=document.getElementById('exInfo');
+  if(ds.reliability)info.innerHTML='<span class="lab">강수확률 신뢰도 곡선</span><div class="val" style="color:#38bdf8;font-size:15px">대각선(이상선)에 가까울수록 예보가 정확</div>';
+  else{const slope=linregSlope(ds.data);info.innerHTML=`<span class="lab">${ds.metric} · 장기 추세</span><div class="val" style="color:${slope>0.02?'#22c55e':slope<-0.02?'#f87171':'#94a3b8'}">${fmtSlopeStatic(slope,ds.unit)}</div>`;}
+}
+
+/* ---------- 인트로 부팅 트랜지션 ---------- */
+(function boot(){
+  const LINES=["&gt; init climate-factchecker …","&gt; loading KMA-ASOS dataset …  <b class='ok'>ok</b>","&gt; RAG corpus: 10 seeds  <b class='ok'>loaded</b>","&gt; LLM-judge module …  <b class='ok'>ready</b>","&gt; 시스템 준비 완료 <b class='ok'>✓</b>"];
+  const bl=document.getElementById('bootlines');if(!bl)return;let i=0;
+  const iv=setInterval(()=>{
+    if(i<LINES.length){const d=document.createElement('div');d.innerHTML=LINES[i++];bl.appendChild(d);}
+    else{clearInterval(iv);setTimeout(()=>{const o=document.getElementById('intro');if(!o)return;o.classList.add('done');setTimeout(()=>o.remove(),700);},560);}
+  },380);
+})();
+</script>
+</body>
+</html>
